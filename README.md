@@ -19,7 +19,13 @@ dotnet restore
 dotnet build
 ```
 
-2. **Run the project:**
+2. **Apply migrations (create SQLite database):**
+
+```bash
+dotnet ef database update
+```
+
+3. **Run the project:**
 
 ```bash
 dotnet run
@@ -31,13 +37,21 @@ The application will be available at `http://localhost:5000`.
 
 ### 🐳 Using Docker:
 
-1. **Build Docker image:**
+1. **Apply migrations locally before building Docker image:**
+
+```bash
+dotnet ef database update
+```
+
+> This creates the `app.db` SQLite file, which will be copied into the Docker image.
+
+2. **Build Docker image:**
 
 ```bash
 docker build -t contactus-api .
 ```
 
-2. **Run Docker container:**
+3. **Run Docker container:**
 
 ```bash
 docker run -d -p 8080:8080 --name contactus-app contactus-api
@@ -47,21 +61,35 @@ The application will be accessible at: `http://localhost:8080`
 
 ---
 
-### 📌 Deploying with Docker as a service on Ubuntu (systemd):
+### 📌 Deploying with Docker as a service on Ubuntu (systemd + volume):
 
-1. **Build Docker image:**
+1. **Create host directory and ensure `app.db` exists:**
+
+```bash
+mkdir -p /var/contactus-data
+cp app.db /var/contactus-data/app.db
+```
+
+2. **Build Docker image:**
 
 ```bash
 docker build -t contactus-api .
 ```
 
-2. **Run container with restart:**
+3. **Run container with mounted volume and auto-restart:**
 
 ```bash
-docker run -d --restart always -p 8080:8080 --name contactus-app contactus-api
+docker run -d \
+  --restart always \
+  -p 8080:8080 \
+  --name contactus-app \
+  -v /var/contactus-data/app.db:/app/app.db \
+  contactus-api
 ```
 
-3. (Optional) Create a systemd service:
+> This mounts only the `app.db` file to persist data outside of the container.
+
+4. (Optional) Create a systemd service:
 
 Create file `/etc/systemd/system/contactus-api.service`:
 
@@ -89,4 +117,12 @@ sudo systemctl enable contactus-api
 ```
 
 Your API will now automatically restart and run with your Ubuntu server.
+
+---
+
+## Notes
+
+- Ensure the SQLite file `app.db` exists before running the container with a volume.
+- Mounting the DB file (`app.db`) instead of the whole directory avoids overwriting the application files inside the container.
+- Future improvements may include running migrations automatically inside Docker.
 
